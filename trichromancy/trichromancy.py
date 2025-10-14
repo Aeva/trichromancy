@@ -1,7 +1,9 @@
 
+import math
+
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
-from PyQt5.QtGui import QPixmap, QPainter, QColor, QBrush, QPolygon
-from PyQt5.QtCore import QPoint
+from PyQt5.QtGui import QPixmap, QPainter, QColor, QBrush, QPolygonF, QPainterPath
+from PyQt5.QtCore import QPoint, QPointF
 
 from krita import Krita, DockWidget, ManagedColor
 
@@ -9,16 +11,87 @@ from krita import Krita, DockWidget, ManagedColor
 class TrichromancyWidget(QWidget):
     def __init__(self, parent=None):
         super(TrichromancyWidget, self).__init__(parent)
-        self.cached_image = None
-        self.bg_color = QColor.fromRgbF(0, 0, 0, 1)
+        self.bg_fill = QColor.fromRgbF(0, 0, 0, 1)
+        self.primaries = [
+            [1, 0, 0],
+            [0, 1, 0],
+            [0, 0, 1]]
+
+        def turn(fraction):
+            center_x = 0
+            center_y = 0
+            radius = .5
+            fraction += -0.03
+            return [center_x + radius * math.sin(math.pi * 2 * fraction),
+                    center_y - radius * math.cos(math.pi * 2 * fraction)]
+
+        self.unscaled = [turn(i/3) for i in range(3)]
+        x_parts = [x for (x, y) in self.unscaled]
+        y_parts = [y for (x, y) in self.unscaled]
+        min_x = min(x_parts)
+        min_y = min(y_parts)
+        shift_x = abs(max(x_parts) - min_x) / 2
+        shift_y = abs(max(y_parts) - min_y) / 2
+        for i, (x, y) in enumerate(self.unscaled):
+            self.unscaled[i] = [
+                (x - min_x) - shift_x,
+                (y - min_y) - shift_y]
 
     def redraw(self):
         self.cached_image = QPixmap(self.width(), self.height())
         painter = QPainter(self.cached_image)
 
-        painter.fillRect(0, 0, self.width(), self.height(), self.bg_color)
+        extent = min(self.width(), self.height())
+        center_x = self.width() // 2
+        center_y = self.height() // 2
+        vertices = [[int(x * extent + center_x), int(y * extent + center_y)] for x, y in self.unscaled]
 
-        # todo!
+        painter.fillRect(0, 0, self.width(), self.height(), self.bg_fill)
+
+        primary_radius = max(extent // 10, 2)
+
+        for (r, g, b), coord in zip(self.primaries, vertices):
+            painter.setBrush(QBrush(QColor.fromRgbF(r, g, b, 1)))
+            painter.drawEllipse(QPoint(*coord), primary_radius, primary_radius)
+
+        def draw_triangle(verts, color):
+            verts = verts + [verts[0]]
+            points = [QPointF(x, y) for x, y in verts]
+            path = QPainterPath()
+            path.addPolygon(QPolygonF(points))
+            r, g, b = color
+            painter.fillPath(path, QBrush(QColor.fromRgbF(r, g, b, 1)))
+
+        def midpoint(a, b):
+            return [(a[i] + b[i]) * 0.5 for i in range(len(a))]
+
+        def tessellate(verts, colors, depth=0):
+            v_a, v_b, v_c = verts
+            v_ab = midpoint(v_a, v_b)
+            v_bc = midpoint(v_b, v_c)
+            v_ca = midpoint(v_c, v_a)
+            c_a, c_b, c_c = colors
+            c_ab = midpoint(c_a, c_b)
+            c_bc = midpoint(c_b, c_c)
+            c_ca = midpoint(c_c, c_a)
+
+            triangles = [
+                [[v_a, v_ab, v_ca], [c_a, c_ab, c_ca]],
+                [[v_ab, v_b, v_bc], [c_ab, c_b, c_bc]],
+                [[v_bc, v_c, v_ca], [c_bc, c_c, c_ca]],
+                [[v_ab, v_bc, v_ca], [c_ab, c_bc, c_ca]]]
+
+            if depth > 0:
+                for verts, colors in triangles:
+                    tessellate(verts, colors, depth - 1)
+            else:
+                for verts, colors in triangles:
+                    r = sum([r for r, g, b in colors]) / 3
+                    g = sum([g for r, g, b in colors]) / 3
+                    b = sum([b for r, g, b in colors]) / 3
+                    draw_triangle(verts, [r, g, b])
+
+        tessellate(vertices, self.primaries, 5)
 
         painter.end()
 
@@ -50,8 +123,6 @@ class TrichromancyDocker(DockWidget):
         self.setWidget(self.widget)
         self.mixer_widget.show()
 
-    # notifies when views are added or removed
-    # 'pass' means do not do anything
     def canvasChanged(self, canvas):
         pass
 
