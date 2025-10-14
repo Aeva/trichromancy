@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=Krita/PythonPlugin
+X-KDE-Library=trichromancy
+X-Python-2-Compatible=false
+X-Krita-Manual=Manual.html
+Name=trichromancy
+Comment=Trichromatic Color Mixing
+Name[en_US]=trichromancy
