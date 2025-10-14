@@ -9,8 +9,9 @@ from krita import Krita, DockWidget, ManagedColor
 
 
 class TrichromancyWidget(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, docker, parent=None):
         super(TrichromancyWidget, self).__init__(parent)
+        self.docker = docker
         self.bg_fill = QColor.fromRgbF(0, 0, 0, 1)
         self.primaries = [
             [1, 0, 0],
@@ -36,6 +37,8 @@ class TrichromancyWidget(QWidget):
             self.unscaled[i] = [
                 (x - min_x) - shift_x,
                 (y - min_y) - shift_y]
+
+        self.picking = False
 
     def redraw(self):
         self.cached_image = QPixmap(self.width(), self.height())
@@ -106,6 +109,29 @@ class TrichromancyWidget(QWidget):
     def resizeEvent(self, event):
         self.cached_image = None
 
+    def pick(self, event):
+        if self.cached_image and self.rendered_image:
+            pos = event.pos()
+            x = min(max(pos.x(), 0), self.width())
+            y = min(max(pos.y(), 0), self.height())
+            point = QPoint(x, y)
+            color = self.rendered_image.pixelColor(QPoint(x, y))
+            if self.docker.canvas() and self.docker.canvas().view():
+                color = ManagedColor.fromQColor(color, self.docker.canvas())
+                self.docker.canvas().view().setForeGroundColor(color)
+
+    def mousePressEvent(self, event):
+        self.pick(event)
+        self.picking = True
+
+    def mouseMoveEvent(self, event):
+        if self.picking:
+            self.pick(event)
+
+    def mouseReleaseEvent(self, event):
+        self.pick(event)
+        self.picking = False
+
 
 class TrichromancyDocker(DockWidget):
     def __init__(self):
@@ -116,7 +142,7 @@ class TrichromancyDocker(DockWidget):
         self.widget.minimumHeight = 100
         self.top_layout = QVBoxLayout()
 
-        self.mixer_widget = TrichromancyWidget()
+        self.mixer_widget = TrichromancyWidget(self)
         self.top_layout.addWidget(self.mixer_widget)
 
         self.widget.setLayout(self.top_layout)
