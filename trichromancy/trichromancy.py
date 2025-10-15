@@ -7,6 +7,18 @@ from PyQt5.QtCore import QPoint, QPointF
 
 from krita import Krita, DockWidget, ManagedColor
 
+from mollytime import mollytime
+ColorSpace = mollytime.ColorSpace
+ColorPoint = mollytime.ColorPoint
+
+
+def sRGB_to_OkLAB(r, g, b):
+    return mollytime.convert_color((r, g, b), ColorSpace.sRGB, ColorSpace.OkLAB).channels
+
+
+def OkLAB_to_sRGB(l, a, b):
+    return mollytime.convert_color((l, a, b), ColorSpace.OkLAB, ColorSpace.sRGB).channels
+
 
 class TrichromancyWidget(QWidget):
     def __init__(self, docker, parent=None):
@@ -14,9 +26,10 @@ class TrichromancyWidget(QWidget):
         self.docker = docker
         self.bg_fill = QColor.fromRgbF(0, 0, 0, 1)
         self.primaries = [
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 0, 1]]
+            sRGB_to_OkLAB(1, 0, 0),
+            sRGB_to_OkLAB(0, 1, 0),
+            sRGB_to_OkLAB(0, 0, 1)]
+        assert(len(self.primaries[0]) == 3)
 
         def turn(fraction):
             center_x = 0
@@ -53,7 +66,8 @@ class TrichromancyWidget(QWidget):
 
         primary_radius = max(extent // 10, 2)
 
-        for (r, g, b), coord in zip(self.primaries, vertices):
+        for primary, coord in zip(self.primaries, vertices):
+            r, g, b = OkLAB_to_sRGB(*primary)
             painter.setBrush(QBrush(QColor.fromRgbF(r, g, b, 1)))
             painter.drawEllipse(QPoint(*coord), primary_radius, primary_radius)
 
@@ -62,7 +76,7 @@ class TrichromancyWidget(QWidget):
             points = [QPointF(x, y) for x, y in verts]
             path = QPainterPath()
             path.addPolygon(QPolygonF(points))
-            r, g, b = color
+            r, g, b = OkLAB_to_sRGB(*color)
             painter.fillPath(path, QBrush(QColor.fromRgbF(r, g, b, 1)))
 
         def midpoint(a, b):
