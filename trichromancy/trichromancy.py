@@ -2,7 +2,7 @@
 import math
 
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
-from PyQt5.QtGui import QPixmap, QPainter, QColor, QBrush, QPolygonF, QPainterPath
+from PyQt5.QtGui import QPixmap, QPainter, QColor, QBrush, QPolygonF, QPainterPath, QPalette
 from PyQt5.QtCore import QPoint, QPointF
 
 from krita import Krita, DockWidget, ManagedColor
@@ -26,9 +26,9 @@ class TrichromancyWidget(QWidget):
         self.docker = docker
         self.bg_fill = QColor.fromRgbF(0, 0, 0, 1)
         self.primaries = [
-            sRGB_to_OkLAB(1, 0, 0),
             sRGB_to_OkLAB(0, 1, 0),
-            sRGB_to_OkLAB(0, 0, 1)]
+            sRGB_to_OkLAB(0, 0, 1),
+            sRGB_to_OkLAB(1, 0, 0)]
         assert(len(self.primaries[0]) == 3)
 
         def turn(fraction):
@@ -134,6 +134,11 @@ class TrichromancyWidget(QWidget):
                 color = ManagedColor.fromQColor(color, self.docker.canvas())
                 self.docker.canvas().view().setForeGroundColor(color)
 
+    def set_primary(self, primary_index, r, g, b):
+        self.primaries[primary_index] = sRGB_to_OkLAB(r, g, b)
+        self.cached_image = None
+        self.update()
+
     def mousePressEvent(self, event):
         self.pick(event)
         self.picking = True
@@ -147,6 +152,49 @@ class TrichromancyWidget(QWidget):
         self.picking = False
 
 
+class SwatchButton(QWidget):
+    def __init__(self, primary_index, docker, parent=None):
+        super(SwatchButton, self).__init__(parent)
+        self.setMinimumWidth(32)
+        self.setMinimumHeight(32)
+        self.setMaximumWidth(64)
+        self.setMaximumHeight(64)
+
+        initial_color = docker.mixer_widget.primaries[primary_index]
+        r, g, b = OkLAB_to_sRGB(*initial_color)
+        self.button_color = QColor.fromRgbF(r, g, b, 1)
+
+        self.primary_index = primary_index
+        self.docker = docker
+        self.swatch_image = None
+
+    def redraw(self):
+        self.swatch_image = QPixmap(self.width(), self.height())
+        painter = QPainter(self.swatch_image)
+        painter.fillRect(0, 0, self.width(), self.height(), self.button_color)
+        painter.end()
+
+    def update_color(self):
+        managed_color = self.docker.canvas().view().foregroundColor()
+        self.button_color = managed_color.colorForCanvas(self.docker.canvas())
+        self.swatch_image = None
+        self.redraw()
+        self.update()
+        r, g, b, a = self.button_color.getRgbF()
+        self.docker.mixer_widget.set_primary(self.primary_index, r, g, b)
+
+    def paintEvent(self, event):
+        if self.swatch_image is None:
+            self.redraw()
+
+        widget_painter = QPainter(self)
+        self.rendered_image = self.swatch_image.toImage()
+        widget_painter.drawImage(0, 0, self.rendered_image)
+
+    def mouseReleaseEvent(self, event):
+        self.update_color()
+
+
 class TrichromancyDocker(DockWidget):
     def __init__(self):
         super().__init__()
@@ -155,9 +203,17 @@ class TrichromancyDocker(DockWidget):
         self.widget.minimumWidth = 100
         self.widget.minimumHeight = 100
         self.top_layout = QVBoxLayout()
+        self.swatch_layout = QHBoxLayout()
 
         self.mixer_widget = TrichromancyWidget(self)
         self.top_layout.addWidget(self.mixer_widget)
+
+        self.primary_buttons = []
+        for primary_index in [2, 0, 1]:
+            button = SwatchButton(primary_index, self)
+            self.primary_buttons.append(button)
+            self.swatch_layout.addWidget(button)
+        self.top_layout.addLayout(self.swatch_layout)
 
         self.widget.setLayout(self.top_layout)
         self.setWidget(self.widget)
