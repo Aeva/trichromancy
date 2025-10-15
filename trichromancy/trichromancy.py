@@ -12,6 +12,9 @@ ColorSpace = mollytime.ColorSpace
 ColorPoint = mollytime.ColorPoint
 
 
+mollytime.set_gamma(1.8)
+
+
 def sRGB_to_OkLAB(r, g, b):
     return mollytime.convert_color((r, g, b), ColorSpace.sRGB, ColorSpace.OkLAB).channels
 
@@ -20,15 +23,27 @@ def OkLAB_to_sRGB(l, a, b):
     return mollytime.convert_color((l, a, b), ColorSpace.OkLAB, ColorSpace.sRGB).channels
 
 
+def LinearRGB_to_OkLAB(r, g, b):
+    return mollytime.convert_color((r, g, b), ColorSpace.LinearRGB, ColorSpace.OkLAB).channels
+
+
+def OkLAB_to_LinearRGB(l, a, b):
+    return mollytime.convert_color((l, a, b), ColorSpace.OkLAB, ColorSpace.LinearRGB).channels
+
+
+RGB_to_OkLAB = sRGB_to_OkLAB
+OkLAB_to_RGB = OkLAB_to_sRGB
+
+
 class TrichromancyWidget(QWidget):
     def __init__(self, docker, parent=None):
         super(TrichromancyWidget, self).__init__(parent)
         self.docker = docker
-        self.bg_fill = QColor.fromRgbF(0, 0, 0, 1)
+        self.bg_fill = QColor.fromRgbF(58 / 255, 58 / 255, 58 / 255, 1)
         self.primaries = [
-            sRGB_to_OkLAB(0, 1, 0),
-            sRGB_to_OkLAB(0, 0, 1),
-            sRGB_to_OkLAB(1, 0, 0)]
+            RGB_to_OkLAB(0, 0, 53 / 255),
+            RGB_to_OkLAB(1, 240 / 255, 0),
+            RGB_to_OkLAB(96 / 255, 0, 35 / 255)]
         assert(len(self.primaries[0]) == 3)
 
         def turn(fraction):
@@ -67,7 +82,7 @@ class TrichromancyWidget(QWidget):
         primary_radius = max(extent // 10, 2)
 
         for primary, coord in zip(self.primaries, vertices):
-            r, g, b = OkLAB_to_sRGB(*primary)
+            r, g, b = OkLAB_to_RGB(*primary)
             painter.setBrush(QBrush(QColor.fromRgbF(r, g, b, 1)))
             painter.drawEllipse(QPoint(*coord), primary_radius, primary_radius)
 
@@ -76,7 +91,7 @@ class TrichromancyWidget(QWidget):
             points = [QPointF(x, y) for x, y in verts]
             path = QPainterPath()
             path.addPolygon(QPolygonF(points))
-            r, g, b = OkLAB_to_sRGB(*color)
+            r, g, b = OkLAB_to_RGB(*color)
             painter.fillPath(path, QBrush(QColor.fromRgbF(r, g, b, 1)))
 
         def midpoint(a, b):
@@ -135,7 +150,7 @@ class TrichromancyWidget(QWidget):
                 self.docker.canvas().view().setForeGroundColor(color)
 
     def set_primary(self, primary_index, r, g, b):
-        self.primaries[primary_index] = sRGB_to_OkLAB(r, g, b)
+        self.primaries[primary_index] = RGB_to_OkLAB(r, g, b)
         self.cached_image = None
         self.update()
 
@@ -161,7 +176,7 @@ class SwatchButton(QWidget):
         self.setMaximumHeight(64)
 
         initial_color = docker.mixer_widget.primaries[primary_index]
-        r, g, b = OkLAB_to_sRGB(*initial_color)
+        r, g, b = OkLAB_to_RGB(*initial_color)
         self.button_color = QColor.fromRgbF(r, g, b, 1)
 
         self.primary_index = primary_index
