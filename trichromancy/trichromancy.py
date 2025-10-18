@@ -1,7 +1,7 @@
 
 import math
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QSizePolicy
 from PyQt5.QtGui import QPixmap, QPainter, QColor, QBrush, QPolygonF, QPainterPath, QPalette
 from PyQt5.QtCore import QPoint, QPointF
 
@@ -12,7 +12,7 @@ ColorSpace = mollytime.ColorSpace
 ColorPoint = mollytime.ColorPoint
 
 
-mollytime.set_gamma(1.8)
+#mollytime.set_gamma(1.8)
 
 
 def sRGB_to_OkLAB(r, g, b):
@@ -31,8 +31,8 @@ def OkLAB_to_LinearRGB(l, a, b):
     return mollytime.convert_color((l, a, b), ColorSpace.OkLAB, ColorSpace.LinearRGB).channels
 
 
-RGB_to_OkLAB = sRGB_to_OkLAB
-OkLAB_to_RGB = OkLAB_to_sRGB
+RGB_to_OkLAB = LinearRGB_to_OkLAB
+OkLAB_to_RGB = OkLAB_to_LinearRGB
 
 
 class TrichromancyWidget(QWidget):
@@ -97,15 +97,21 @@ class TrichromancyWidget(QWidget):
         def midpoint(a, b):
             return [(a[i] + b[i]) * 0.5 for i in range(len(a))]
 
-        def tessellate(verts, colors, depth=0):
+        def color_mix(lhs, rhs, chroma_weight):
+            lhs = mollytime.oklab(*lhs)
+            rhs = mollytime.oklab(*rhs)
+            return mollytime.mix_lchab(lhs, rhs, 0.5, chroma_weight).channels
+
+        def tessellate_inner(verts, colors, depth, levels):
+            chroma_weight = 0.25 if depth == levels else 0.0
             v_a, v_b, v_c = verts
             v_ab = midpoint(v_a, v_b)
             v_bc = midpoint(v_b, v_c)
             v_ca = midpoint(v_c, v_a)
             c_a, c_b, c_c = colors
-            c_ab = midpoint(c_a, c_b)
-            c_bc = midpoint(c_b, c_c)
-            c_ca = midpoint(c_c, c_a)
+            c_ab = color_mix(c_a, c_b, chroma_weight)
+            c_bc = color_mix(c_b, c_c, chroma_weight)
+            c_ca = color_mix(c_c, c_a, chroma_weight)
 
             triangles = [
                 [[v_a, v_ab, v_ca], [c_a, c_ab, c_ca]],
@@ -115,13 +121,16 @@ class TrichromancyWidget(QWidget):
 
             if depth > 0:
                 for verts, colors in triangles:
-                    tessellate(verts, colors, depth - 1)
+                    tessellate_inner(verts, colors, depth - 1, levels)
             else:
                 for verts, colors in triangles:
                     r = sum([r for r, g, b in colors]) / 3
                     g = sum([g for r, g, b in colors]) / 3
                     b = sum([b for r, g, b in colors]) / 3
                     draw_triangle(verts, [r, g, b])
+
+        def tessellate(verts, colors, levels):
+            return tessellate_inner(verts, colors, levels, levels)
 
         tessellate(vertices, self.primaries, 5)
 
@@ -170,10 +179,6 @@ class TrichromancyWidget(QWidget):
 class SwatchButton(QWidget):
     def __init__(self, primary_index, docker, parent=None):
         super(SwatchButton, self).__init__(parent)
-        self.setMinimumWidth(32)
-        self.setMinimumHeight(32)
-        self.setMaximumWidth(64)
-        self.setMaximumHeight(64)
 
         initial_color = docker.mixer_widget.primaries[primary_index]
         r, g, b = OkLAB_to_RGB(*initial_color)
@@ -221,14 +226,17 @@ class TrichromancyDocker(DockWidget):
         self.swatch_layout = QHBoxLayout()
 
         self.mixer_widget = TrichromancyWidget(self)
-        self.top_layout.addWidget(self.mixer_widget)
+        self.top_layout.addWidget(self.mixer_widget, 10)
+
+        self.mixer_widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred);
 
         self.primary_buttons = []
         for primary_index in [2, 0, 1]:
             button = SwatchButton(primary_index, self)
+            button.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Ignored);
             self.primary_buttons.append(button)
             self.swatch_layout.addWidget(button)
-        self.top_layout.addLayout(self.swatch_layout)
+        self.top_layout.addLayout(self.swatch_layout, 1)
 
         self.widget.setLayout(self.top_layout)
         self.setWidget(self.widget)
