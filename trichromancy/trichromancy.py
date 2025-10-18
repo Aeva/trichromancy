@@ -12,9 +12,6 @@ ColorSpace = mollytime.ColorSpace
 ColorPoint = mollytime.ColorPoint
 
 
-#mollytime.set_gamma(1.8)
-
-
 def sRGB_to_OkLAB(r, g, b):
     return mollytime.convert_color((r, g, b), ColorSpace.sRGB, ColorSpace.OkLAB).channels
 
