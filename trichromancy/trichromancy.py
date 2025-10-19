@@ -1,7 +1,7 @@
 
 import math
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QSizePolicy
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QPushButton, QDoubleSpinBox
 from PyQt5.QtGui import QPixmap, QPainter, QColor, QBrush, QPolygonF, QPainterPath, QPalette
 from PyQt5.QtCore import QPoint, QPointF
 
@@ -41,6 +41,7 @@ class TrichromancyWidget(QWidget):
             RGB_to_OkLAB(0, 0, 53 / 255),
             RGB_to_OkLAB(1, 240 / 255, 0),
             RGB_to_OkLAB(96 / 255, 0, 35 / 255)]
+        self.chroma_weight = 0.25
         assert(len(self.primaries[0]) == 3)
 
         def turn(fraction):
@@ -99,8 +100,10 @@ class TrichromancyWidget(QWidget):
             rhs = mollytime.oklab(*rhs)
             return mollytime.mix_lchab(lhs, rhs, 0.5, chroma_weight).channels
 
+        initial_chroma_weight = self.chroma_weight
+
         def tessellate_inner(verts, colors, depth, levels):
-            chroma_weight = 0.25 if depth == levels else 0.0
+            chroma_weight = initial_chroma_weight if depth == levels else 0.0
             v_a, v_b, v_c = verts
             v_ab = midpoint(v_a, v_b)
             v_bc = midpoint(v_b, v_c)
@@ -233,11 +236,24 @@ class TrichromancyDocker(DockWidget):
             button.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Ignored);
             self.primary_buttons.append(button)
             self.swatch_layout.addWidget(button)
+
+        chroma_weight_spinbox = QDoubleSpinBox()
+        chroma_weight_spinbox.setDecimals(2)
+        chroma_weight_spinbox.setRange(0.0, 1.0)
+        chroma_weight_spinbox.setSingleStep(0.1)
+        chroma_weight_spinbox.setValue(self.mixer_widget.chroma_weight)
+        chroma_weight_spinbox.valueChanged.connect(self.set_chroma_weight)
+        self.swatch_layout.addWidget(chroma_weight_spinbox)
         self.top_layout.addLayout(self.swatch_layout, 1)
 
         self.widget.setLayout(self.top_layout)
         self.setWidget(self.widget)
         self.mixer_widget.show()
+
+    def set_chroma_weight(self, value):
+        self.mixer_widget.chroma_weight = value
+        self.mixer_widget.cached_image = None
+        self.mixer_widget.update()
 
     def canvasChanged(self, canvas):
         pass
