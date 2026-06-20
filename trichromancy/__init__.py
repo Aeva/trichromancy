@@ -5,5 +5,5 @@ DOCKER_ID = "Trichromancy"
 Application.addDockWidgetFactory(
     DockWidgetFactory(
         DOCKER_ID,
-        DockWidgetFactoryBase.DockRight,
+        DockWidgetFactoryBase.DockPosition.DockRight,
         TrichromancyDocker))

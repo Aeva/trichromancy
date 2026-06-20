@@ -1,13 +1,18 @@
 
 import math
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QPushButton, QDoubleSpinBox
-from PyQt5.QtGui import QPixmap, QPainter, QColor, QBrush, QPolygonF, QPainterPath, QPalette
-from PyQt5.QtCore import QPoint, QPointF
+try:
+    from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QPushButton, QDoubleSpinBox
+    from PyQt5.QtGui import QPixmap, QPainter, QColor, QBrush, QPolygonF, QPainterPath, QPalette
+    from PyQt5.QtCore import QPoint, QPointF
+except:
+    from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QPushButton, QDoubleSpinBox
+    from PyQt6.QtGui import QPixmap, QPainter, QColor, QBrush, QPolygonF, QPainterPath, QPalette
+    from PyQt6.QtCore import QPoint, QPointF
 
 from krita import Krita, DockWidget, ManagedColor
 
-from mollytime import mollytime
+from mollytime import backend as mollytime
 ColorSpace = mollytime.ColorSpace
 ColorPoint = mollytime.ColorPoint
 
@@ -228,12 +233,12 @@ class TrichromancyDocker(DockWidget):
         self.mixer_widget = TrichromancyWidget(self)
         self.top_layout.addWidget(self.mixer_widget, 10)
 
-        self.mixer_widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred);
+        self.mixer_widget.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred);
 
         self.primary_buttons = []
         for primary_index in [2, 0, 1]:
             button = SwatchButton(primary_index, self)
-            button.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Ignored);
+            button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Ignored);
             self.primary_buttons.append(button)
             self.swatch_layout.addWidget(button)
 
