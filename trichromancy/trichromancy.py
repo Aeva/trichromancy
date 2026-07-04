@@ -1,7 +1,6 @@
 
 import math
-import numpy as np
-from color_math import sRGB_to_OkLAB, OkLAB_to_sRGB, LinearRGB_to_OkLAB, OkLAB_to_LinearRGB, mix_lchab
+from .color_math import sRGB_to_OkLAB, OkLAB_to_sRGB, LinearRGB_to_OkLAB, OkLAB_to_LinearRGB, mix_lchab, vec3
 
 
 try:
@@ -84,8 +83,6 @@ class TrichromancyWidget(QWidget):
             return [(a[i] + b[i]) * 0.5 for i in range(len(a))]
 
         def color_mix(lhs, rhs, chroma_weight):
-            lhs = np.array(lhs)
-            rhs = np.array(rhs)
             return mix_lchab(lhs, rhs, 0.5, chroma_weight)
 
         initial_chroma_weight = self.chroma_weight
