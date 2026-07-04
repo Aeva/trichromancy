@@ -1,5 +1,8 @@
 
 import math
+import numpy as np
+from color_math import sRGB_to_OkLAB, OkLAB_to_sRGB, LinearRGB_to_OkLAB, OkLAB_to_LinearRGB, mix_lchab
+
 
 try:
     from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QPushButton, QDoubleSpinBox
@@ -11,26 +14,6 @@ except:
     from PyQt6.QtCore import QPoint, QPointF
 
 from krita import Krita, DockWidget, ManagedColor
-
-from mollytime import backend as mollytime
-ColorSpace = mollytime.ColorSpace
-ColorPoint = mollytime.ColorPoint
-
-
-def sRGB_to_OkLAB(r, g, b):
-    return mollytime.convert_color((r, g, b), ColorSpace.sRGB, ColorSpace.OkLAB).channels
-
-
-def OkLAB_to_sRGB(l, a, b):
-    return mollytime.convert_color((l, a, b), ColorSpace.OkLAB, ColorSpace.sRGB).channels
-
-
-def LinearRGB_to_OkLAB(r, g, b):
-    return mollytime.convert_color((r, g, b), ColorSpace.LinearRGB, ColorSpace.OkLAB).channels
-
-
-def OkLAB_to_LinearRGB(l, a, b):
-    return mollytime.convert_color((l, a, b), ColorSpace.OkLAB, ColorSpace.LinearRGB).channels
 
 
 RGB_to_OkLAB = LinearRGB_to_OkLAB
@@ -101,9 +84,9 @@ class TrichromancyWidget(QWidget):
             return [(a[i] + b[i]) * 0.5 for i in range(len(a))]
 
         def color_mix(lhs, rhs, chroma_weight):
-            lhs = mollytime.oklab(*lhs)
-            rhs = mollytime.oklab(*rhs)
-            return mollytime.mix_lchab(lhs, rhs, 0.5, chroma_weight).channels
+            lhs = np.array(lhs)
+            rhs = np.array(rhs)
+            return mix_lchab(lhs, rhs, 0.5, chroma_weight)
 
         initial_chroma_weight = self.chroma_weight
 
